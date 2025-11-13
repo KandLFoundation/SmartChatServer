@@ -3,9 +3,9 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import openai
 
-# Initialize Flask app
+# ------------------- Your app initialization -------------------
 app = Flask(__name__)
-CORS(app)  # Allow cross-origin requests from your website
+CORS(app)
 
 # Load environment variables
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
@@ -14,8 +14,9 @@ BOT_NAME = os.environ.get("BOT_NAME", "KL Lexus")
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY environment variable is not set!")
 
-# Set API key for OpenAI client
+# ------------------- FIX: Set OpenAI API key for 1.x -------------------
 openai.api_key = OPENAI_API_KEY
+# ---------------------------------------------------------------------
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -26,19 +27,18 @@ def chat():
         return jsonify({"reply": f"{BOT_NAME}: Please type something first!"})
 
     try:
-        # Use the new OpenAI 1.x API
+        # ------------------- FIX: Use openai.chat.completions.create -------------------
         response = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": f"You are {BOT_NAME}, a helpful assistant for K&L Foundation."},
                 {"role": "user", "content": user_msg}
             ],
-            max_tokens=200,
-            temperature=0.7
+            temperature=0.7,
+            max_tokens=200
         )
-
-        bot_reply = response.choices[0].message.content
-
+        bot_reply = response.choices[0].message.content.strip()
+        # -------------------------------------------------------------------------------
     except Exception as e:
         bot_reply = f"{BOT_NAME}: Sorry, I couldn’t process that. ({e})"
 
