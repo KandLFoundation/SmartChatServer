@@ -1,39 +1,49 @@
-from flask import Flask, request, jsonify
 import os
-import requests
-from dotenv import load_dotenv
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import openai
 
-load_dotenv()
-
+# Initialize app
 app = Flask(__name__)
-OPENAI_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+CORS(app)  # allow cross-origin requests from your website
+
+# Load API key from Render environment variables
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+BOT_NAME = os.environ.get("BOT_NAME", "KL Lexus")
+
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY environment variable is not set!")
+
+openai.api_key = OPENAI_API_KEY
 
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.get_json()
-    message = data.get("message", "")
+    user_msg = data.get("message", "").strip()
 
-    headers = {
-        "Authorization": f"Bearer {OPENAI_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    payload = {
-        "model": "gpt-3.5-turbo",
-        "messages": [{"role": "user", "content": message}],
-        "max_tokens": 200
-    }
+    if not user_msg:
+        return jsonify({"reply": f"{BOT_NAME}: Please type something first!"})
 
     try:
-        response = requests.post(OPENAI_URL, headers=headers, json=payload)
-        response.raise_for_status()
-        answer = response.json()["choices"][0]["message"]["content"]
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": f"You are {BOT_NAME}, a helpful assistant for K&L Foundation."},
+                {"role": "user", "content": user_msg}
+            ],
+            max_tokens=200,
+            temperature=0.7
+        )
+        bot_reply = response.choices[0].message.content.strip()
     except Exception as e:
-        answer = "KL Lexus: Sorry, I couldn't connect to the AI server."
+        bot_reply = f"{BOT_NAME}: Sorry, I couldn’t process that. ({e})"
 
-    return jsonify({"reply": answer})
+    return jsonify({"reply": bot_reply})
+
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({"status": "KL Lexus server is running"}), 200
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 10000))  # Render sets PORT automatically
     app.run(host="0.0.0.0", port=port)
